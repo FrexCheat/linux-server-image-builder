@@ -1,0 +1,53 @@
+---
+- name: Install SSH server
+  ansible.builtin.apt:
+    name: openssh-server
+    state: present
+    install_recommends: false
+
+- name: Remove ssh host keys (if any)
+  ansible.builtin.file:
+    dest: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/ssh/ssh_host_dsa_key
+    - /etc/ssh/ssh_host_dsa_key.pub
+    - /etc/ssh/ssh_host_ecdsa_key
+    - /etc/ssh/ssh_host_ecdsa_key.pub
+    - /etc/ssh/ssh_host_ed25519_key
+    - /etc/ssh/ssh_host_ed25519_key.pub
+    - /etc/ssh/ssh_host_rsa_key
+    - /etc/ssh/ssh_host_rsa_key.pub
+
+- name: Add sshd-keygen service
+  # This service is used to generate SSH host keys on first boot.
+  # Backported from Debian sid to Ubuntu 24.04.
+  # https://salsa.debian.org/ssh-team/openssh/-/commit/1848fa283668b9aa3c542c235cd9fa46d5feaab0
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/sshd-keygen.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Generate sshd host keys on first boot
+      ConditionPathExists=|!/etc/ssh/ssh_host_ecdsa_key
+      ConditionPathExists=|!/etc/ssh/ssh_host_ecdsa_key.pub
+      ConditionPathExists=|!/etc/ssh/ssh_host_ed25519_key
+      ConditionPathExists=|!/etc/ssh/ssh_host_ed25519_key.pub
+      ConditionPathExists=|!/etc/ssh/ssh_host_rsa_key
+      ConditionPathExists=|!/etc/ssh/ssh_host_rsa_key.pub
+      Before=ssh.service sshd.service sshd@.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=ssh-keygen -A
+
+      [Install]
+      WantedBy=ssh.service sshd.service sshd@.service ssh.socket
+
+- name: Enable sshd-keygen service
+  ansible.builtin.systemd:
+    name: sshd-keygen.service
+    enabled: true

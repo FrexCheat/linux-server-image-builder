@@ -1,0 +1,6 @@
+.ansible
+.env
+tmp/
+out/
+work/
+output/

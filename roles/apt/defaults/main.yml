@@ -1,0 +1,6 @@
+---
+apt_ubuntu_source: https://mirrors.tuna.tsinghua.edu.cn/ubuntu
+apt_caddy_source: https://dl.cloudsmith.io/public/caddy/stable/deb/debian
+apt_docker_source: https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/ubuntu
+apt_fish_ppa_source: https://launchpad.proxy.ustclug.org/fish-shell/release-4/ubuntu
+apt_fastfetch_ppa_source: https://launchpad.proxy.ustclug.org/zhangsongcui3371/fastfetch/ubuntu

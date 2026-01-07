@@ -1,0 +1,37 @@
+---
+- name: Systemd Networkd
+  ansible.builtin.systemd:
+    name: "{{ item.name }}"
+    enabled: "{{ item.enabled | default(false) }}"
+    masked: "{{ item.masked | default(false) }}"
+  with_items:
+    - { name: systemd-networkd.service, enabled: true }
+    - { name: systemd-networkd-wait-online.service, enabled: false }
+
+- name: Netplan configuration
+  ansible.builtin.copy:
+    dest: /etc/netplan/00-systemd-networkd-all.yaml
+    content: |
+      network:
+        version: 2
+        renderer: networkd
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: DHCP for all ethernet interfaces
+  ansible.builtin.copy:
+    dest: /etc/systemd/network/01-ethernet.network
+    content: |
+      [Match]
+      Name=en*
+      Name=eth*
+
+      [Network]
+      DHCP=yes
+
+      [DHCPv4]
+      ClientIdentifier=mac
+    owner: root
+    group: root
+    mode: '0644'

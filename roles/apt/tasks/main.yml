@@ -1,0 +1,88 @@
+---
+- name: Cleanup Old APT sources list
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list
+    content: |
+      # Ubuntu sources have moved to the /etc/apt/sources.list.d/ubuntu.sources
+      # file, which uses the deb822 format. Use deb822-formatted .sources files
+      # to manage package sources in the /etc/apt/sources.list.d/ directory.
+      # See the sources.list(5) manual page for details.
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Add Ubuntu APT source
+  ansible.builtin.deb822_repository:
+    name: ubuntu
+    types: deb
+    uris: "{{ apt_ubuntu_source }}"
+    suites:
+      - noble
+      - noble-updates
+      - noble-backports
+      - noble-security
+    components:
+      - main
+      - restricted
+      - universe
+      - multiverse
+    signed_by: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+- name: Add Caddy APT source
+  ansible.builtin.deb822_repository:
+    name: caddy-stable
+    types: deb
+    architectures: amd64
+    uris: "{{ apt_caddy_source }}"
+    suites:
+      - any-version
+    components:
+      - main
+    signed_by: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+
+- name: Add Docker APT source
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    architectures: amd64
+    uris: "{{ apt_docker_source }}"
+    suites:
+      - noble
+    components:
+      - stable
+    signed_by: https://download.docker.com/linux/ubuntu/gpg
+
+- name: Add Fish shell PPA APT source
+  ansible.builtin.deb822_repository:
+    name: fish-shell-4-ppa
+    types: deb
+    architectures: amd64
+    uris: "{{ apt_fish_ppa_source }}"
+    suites:
+      - noble
+    components:
+      - main
+    signed_by: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x88421E703EDC7AF54967DED473C9FCC9E2BB48DA
+
+- name: Add Fastfetch PPA APT source
+  ansible.builtin.deb822_repository:
+    name: fastfetch-ppa
+    types: deb
+    architectures: amd64
+    uris: "{{ apt_fastfetch_ppa_source }}"
+    suites:
+      - noble
+    components:
+      - main
+    signed_by: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xEB65EE19D802F3EB1A13CFE47E2E5CB4D4865F21
+
+- name: Disable snap
+  ansible.builtin.copy:
+    dest: /etc/apt/preferences.d/snapd-disable
+    content: |
+      Package: snapd
+      Pin: release *
+      Pin-Priority: -10
+    owner: root
+    group: root
+    mode: '0644'

@@ -1,0 +1,20 @@
+---
+- name: Upgrade all packages
+  ansible.builtin.apt:
+    upgrade: true
+    update_cache: true
+    install_recommends: false
+
+- name: Install basic packages
+  ansible.builtin.apt:
+    name:
+      - efibootmgr
+      - firmware-sof-signed
+      - initramfs-tools
+      - linux-image-generic
+      - grub-efi-amd64-bin
+      - grub-efi-amd64-signed
+      - grub-pc-bin
+      - shim-signed
+    state: present
+    install_recommends: false

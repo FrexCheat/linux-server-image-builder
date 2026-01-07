@@ -1,0 +1,11 @@
+---
+- name: Build custom ubuntu-noble image for server
+  hosts: vm
+  connection: "chroot"
+  gather_facts: false
+  roles:
+    - { role: apt, tags: ['apt'] }
+    - { role: basic, tags: ['basic'] }
+    - { role: ssh, tags: ['ssh'] }
+    - { role: network, tags: ['network'] }
+    - { role: custom, tags: ['custom'] }

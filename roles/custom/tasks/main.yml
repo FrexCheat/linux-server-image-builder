@@ -1,0 +1,32 @@
+---
+- name: Install additional packages
+  ansible.builtin.apt:
+    name:
+      # Disk Utils
+      - btrfs-progs
+      - ntfs-3g
+      # Network
+      - net-tools
+      - nftables
+      - ufw
+      # Utils
+      - jq
+      - byobu
+      - curl
+      - wget
+      - htop
+      - btop
+      - gnupg
+      - rsync
+      - usbutils
+      - debian-keyring
+      - debian-archive-keyring
+      - apt-transport-https
+      - ca-certificates
+      - python-is-python3
+      - util-linux-extra
+      - fastfetch
+      - fish
+    state: present
+    install_recommends: false
+    update_cache: true
