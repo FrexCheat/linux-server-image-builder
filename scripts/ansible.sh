@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 set -euo pipefail
 
@@ -19,17 +19,13 @@ error() {
     echo -e "${red}$1${reset}" >&2
 }
 
-init_env() {
-    unset JAVA_HOME
-    export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-}
-
 if [ $# -ne 1 ]; then
     error "Usage: $0 <debootstrap directory>"
     exit 1
 fi
 
-init_env
+unset JAVA_HOME
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 BASEROOTFS=$1; shift
 DESTROOTFS=$(mktemp -d "/tmp/ubuntu-noble-rootfs.XXXXXX")
@@ -54,7 +50,7 @@ mount_all() {
     mount -t tmpfs tmpfs "$DESTROOTFS/run"
     mkdir -p "$DESTROOTFS/run/systemd/resolve"
     mkdir -p "$DESTROOTFS/var/cache/apt/archives"
-    mount -o bind $CACHEDIR "$DESTROOTFS/var/cache/apt/archives"
+    mount -o bind "$CACHEDIR" "$DESTROOTFS/var/cache/apt/archives"
     touch "$DESTROOTFS/run/systemd/resolve/stub-resolv.conf"
     cp /etc/resolv.conf "$DESTROOTFS/run/systemd/resolve/stub-resolv.conf" || warn "Failed to copy resolv.conf, DNS may not work inside chroot"
 }

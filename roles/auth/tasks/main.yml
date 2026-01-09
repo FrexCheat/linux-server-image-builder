@@ -1,0 +1,25 @@
+---
+- name: Change Root Password
+  ansible.builtin.user:
+    name: root
+    password: "{{ '114514' | password_hash('sha512') }}"
+
+- name: Configure SSH Authentication
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/99-ansible-generate.conf
+    content: |
+      PasswordAuthentication no
+      PubkeyAuthentication yes
+      PermitRootLogin prohibit-password
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Import Custom SSH Public Key
+  ansible.posix.authorized_key:
+    user: root
+    state: present
+    key: "{{ item }}"
+  loop:
+    - https://github.com/FrexCheat.keys
+    - https://github.com/Charles-IX.keys

@@ -3,30 +3,56 @@
   ansible.builtin.apt:
     name:
       # Disk Utils
-      - btrfs-progs
+      - parted
       - ntfs-3g
+      - xfsprogs
+      - e2fsprogs
+      - dosfstools
       # Network
       - net-tools
-      - nftables
+      - iptables
       - ufw
       # Utils
       - jq
-      - byobu
       - curl
       - wget
+      - nano
+      - rsync
       - htop
       - btop
+      - git
       - gnupg
-      - rsync
       - usbutils
+      - moreutils
+      - util-linux-extra
+      - python-is-python3
+      - arch-install-scripts
+      # extra
+      - fish
+      - fastfetch
+      - ca-certificates
+      - apt-transport-https
       - debian-keyring
       - debian-archive-keyring
-      - apt-transport-https
-      - ca-certificates
-      - python-is-python3
-      - util-linux-extra
-      - fastfetch
-      - fish
     state: present
     install_recommends: false
     update_cache: true
+
+- name: Ensure en_US.UTF-8 locale is generated
+  community.general.locale_gen:
+    name: en_US.UTF-8
+    state: present
+
+- name: Set English locale as default
+  ansible.builtin.command: update-locale LANG=en_US.UTF-8
+  changed_when: true
+
+- name: Set timezone to UTC+8
+  community.general.timezone:
+    name: Asia/Shanghai
+
+- name: GRUB defaults
+  ansible.builtin.replace:
+    dest: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT=".*"$'
+    replace: 'GRUB_CMDLINE_LINUX_DEFAULT=""'

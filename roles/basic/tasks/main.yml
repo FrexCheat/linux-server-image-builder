@@ -16,5 +16,6 @@
       - grub-efi-amd64-signed
       - grub-pc-bin
       - shim-signed
+      - mtools
     state: present
     install_recommends: false

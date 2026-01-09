@@ -18,20 +18,3 @@
     owner: root
     group: root
     mode: '0600'
-
-- name: DHCP for all ethernet interfaces
-  ansible.builtin.copy:
-    dest: /etc/systemd/network/01-ethernet.network
-    content: |
-      [Match]
-      Name=en*
-      Name=eth*
-
-      [Network]
-      DHCP=yes
-
-      [DHCPv4]
-      ClientIdentifier=mac
-    owner: root
-    group: root
-    mode: '0644'

@@ -9,3 +9,5 @@
     - { role: ssh, tags: ['ssh'] }
     - { role: network, tags: ['network'] }
     - { role: custom, tags: ['custom'] }
+    - { role: auth, tags: ['auth'] }
+    - { role: cleanup, tags: ['cleanup'] }

@@ -1,0 +1,30 @@
+---
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: APT mark minimize manuals
+  ansible.builtin.command:
+    cmd: apt-mark minimize-manual -y
+  changed_when: true
+
+- name: Remove apt lists
+  ansible.builtin.file:
+    name: /var/lib/apt/lists
+    state: absent
+
+- name: Recreate apt list partial directory
+  ansible.builtin.file:
+    name: /var/lib/apt/lists/partial
+    state: directory
+    recurse: true
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Delete /etc/machine-id so the image generates a new one on boot
+  ansible.builtin.copy:
+    dest: /etc/machine-id
+    content: ""
+    owner: root
+    group: root
+    mode: '0644'
