@@ -256,8 +256,6 @@ rsync_rootfs() {
         --exclude="/opt/autodeploy.sh" \
         --exclude="/root/.ansible/" \
         / "$TARGET/"
-
-    chmod 755 $TARGET
     sed -i '/# ==== Auto-deploy toolkit block begin ====/,/# ==== Auto-deploy toolkit block end ====/d' "$TARGET/etc/bash.bashrc"
     sync
 }
