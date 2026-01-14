@@ -255,12 +255,12 @@ mount_target() {
     fi
 }
 
-unmount_target() {
-    info "===> Unmounting target partitions..."
-    umount -R $TARGET || warn "===> Warning: Failed to unmount target partitions. Continuing..."
-    umount -R /tmp || warn "===> Warning: Failed to unmount /tmp. Continuing..."
-    umount -R /run || warn "===> Warning: Failed to unmount /run. Continuing..."
-    umount -R /dev/shm || warn "===> Warning: Failed to unmount /dev/shm. Continuing..."
+umount_target() {
+    info "===> Umounting target partitions..."
+    umount -R $TARGET || warn "===> Warning: Failed to umount target partitions. Continuing..."
+    umount -R /tmp || warn "===> Warning: Failed to umount /tmp. Continuing..."
+    umount -R /run || warn "===> Warning: Failed to umount /run. Continuing..."
+    umount -R /dev/shm || warn "===> Warning: Failed to umount /dev/shm. Continuing..."
     sync
 }
 
@@ -371,7 +371,7 @@ main() {
     rsync_rootfs
     gen_fstab
     install_bootloader
-    unmount_target
+    umount_target
 }
 
 trap 'echo ""; exit' SIGINT
