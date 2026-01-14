@@ -6,7 +6,6 @@
       - parted
       - ntfs-3g
       - xfsprogs
-      - e2fsprogs
       - dosfstools
       # Network
       - net-tools
@@ -24,13 +23,13 @@
       - gnupg
       - usbutils
       - moreutils
+      - ncurses-term
       - util-linux-extra
       - python-is-python3
       - arch-install-scripts
       # extra
       - fish
       - fastfetch
-      - ca-certificates
       - apt-transport-https
       - debian-keyring
       - debian-archive-keyring

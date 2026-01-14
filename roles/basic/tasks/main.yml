@@ -9,13 +9,12 @@
   ansible.builtin.apt:
     name:
       - efibootmgr
-      - firmware-sof-signed
       - initramfs-tools
+      - firmware-sof-signed
       - linux-image-generic
       - grub-efi-amd64-bin
       - grub-efi-amd64-signed
       - grub-pc-bin
       - shim-signed
-      - mtools
     state: present
     install_recommends: false

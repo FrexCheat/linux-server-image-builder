@@ -2,10 +2,10 @@
 
 set -euo pipefail
 
-green='\033[0;32m'
-red='\033[0;31m'
-yellow='\033[0;33m'
-reset='\033[0m'
+green="\033[0;32m"
+red="\033[0;31m"
+yellow="\033[0;33m"
+reset="\033[0m"
 
 info() {
     echo -e "${green}$1${reset}"
@@ -27,13 +27,13 @@ fi
 unset JAVA_HOME
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-BASEROOTFS=$1; shift
+BASEROOTFS="$1"
+shift
 DESTROOTFS=$(mktemp -d "/tmp/ubuntu-noble-rootfs.XXXXXX")
 CACHEDIR=/var/cache/debootstrap
 
 mount_all() {
     info "Mounting temporary debootstrap root filesystem $DESTROOTFS..."
-
     mkdir -p "$DESTROOTFS"
     mount -o bind "$BASEROOTFS" "$DESTROOTFS"
     mount -t proc /proc "$DESTROOTFS/proc"
@@ -57,7 +57,6 @@ mount_all() {
 
 cleanup() {
     info "Cleaning up..."
-
     if [ -d "$DESTROOTFS" ]; then
         info "Unmounting temporary root filesystem $DESTROOTFS..."
         umount -R "$DESTROOTFS" || true
@@ -79,7 +78,7 @@ INVENTORY_FILE=$(mktemp)
 
 trap cleanup EXIT
 
-cat <<EOF > "$INVENTORY_FILE"
+cat <<EOF >"$INVENTORY_FILE"
 [vm]
 $DESTROOTFS ansible_connection=chroot
 EOF

@@ -2,9 +2,9 @@
 
 set -euo pipefail
 
-green='\033[0;32m'
-red='\033[0;31m'
-reset='\033[0m'
+green="\033[0;32m"
+red="\033[0;31m"
+reset="\033[0m"
 
 info() {
     echo -e "${green}$1${reset}"
@@ -19,7 +19,7 @@ if [ $# -ne 1 ]; then
     exit 1
 fi
 
-DESTROOTFS=$1
+DESTROOTFS="$1"
 VERSION=noble
 MIRROR="https://mirrors.tuna.tsinghua.edu.cn/ubuntu/"
 CACHEDIR=/var/cache/debootstrap

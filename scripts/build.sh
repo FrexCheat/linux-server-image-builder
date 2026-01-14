@@ -32,51 +32,47 @@ CD_BOOT_IMG="${CD_BOOT_IMG:-"/usr/share/cd-boot-images-amd64"}"
 
 # ===================== Functions Block =====================
 
-init_workdir() {
+configure_workdir() {
     info "Initializing working directory..."
     info "Sync rootfs to workdir..."
-    rsync -aHAXS \
-        --exclude="/proc/*" \
-        --exclude="/sys/*" \
-        --exclude="/dev/*" \
-        --exclude="/run/*" \
-        --exclude="/mnt/*" \
-        --exclude="/tmp/*" \
-        --exclude="/media/*" \
-        --exclude="/root/.ansible/" \
-        "$ROOTFS/" "$ISODIR/"
-    rsync -a "$CD_BOOT_IMG/tree/" "$ISODIR/"
-}
-
-cleanup() {
-    info "Cleaning up..."
-    if [ -d "$WORKDIR" ]; then
-        rm -rf "$WORKDIR"
-    fi
-}
-
-configure_grub() {
-    info "Configuring GRUB bootloader..."
-    cp ./grub/grub.cfg "$ISODIR/boot/grub/grub.cfg"
+    rsync -aHAXS --exclude="/root/.ansible/" "$ROOTFS/" "$ISODIR/"
 }
 
 configure_auto_deploy() {
-    info "Configuring auto deploy settings..."
-
-    info "Configure auto deploy toolkit..."
+    info "Configuring auto deploy toolkit..."
     cp ./deploy/init.sh "$ISODIR/opt/init.sh"
     chmod +x "$ISODIR/opt/init.sh"
 
     cp ./deploy/autodeploy.sh "$ISODIR/opt/autodeploy.sh"
-    cat >> "$ISODIR/etc/bash.bashrc" <<EOF
+    chmod +x "$ISODIR/opt/autodeploy.sh"
+
+    cat >>"$ISODIR/etc/bash.bashrc" <<EOF
 # ==== Auto-deploy toolkit block begin ====
 if [ -f /opt/init.sh ]; then
-    clear
-    bash /opt/autodeploy.sh
+    /opt/autodeploy.sh
 fi
 # ==== Auto-deploy toolkit block end ====
 EOF
-    chmod +x "$ISODIR/opt/autodeploy.sh"
+}
+
+configure_setup_script() {
+    info "Configuring setup script..."
+    cp deploy/setup.sh $ISODIR/opt/setup.sh
+    chmod +x $ISODIR/opt/setup.sh
+
+    cat >>"$ISODIR/root/.bashrc" <<EOF
+# ==== Setup script block begin ====
+if [ ! -f /opt/setup_completed ]; then
+    /opt/setup.sh
+fi
+# ==== Setup script block end ====
+EOF
+}
+
+configure_bootloader() {
+    info "Configuring GRUB bootloader..."
+    rsync -a "$CD_BOOT_IMG/tree/" "$ISODIR/"
+    cp grub/grub.cfg "$ISODIR/boot/grub/grub.cfg"
 }
 
 create_iso() {
@@ -84,7 +80,7 @@ create_iso() {
 
     mkdir -p ./output
     xorriso -as mkisofs \
-        -V "UBUNTU_NOBLE" \
+        -V "UBUNTU_NOBLE_INSTALLER" \
         -iso-level 3 \
         -o "output/$ISONAME" \
         -J -joliet-long \
@@ -99,16 +95,22 @@ create_iso() {
         -e --interval:appended_partition_2:all:: \
         -no-emul-boot \
         -partition_offset 16 -R \
-        $ISODIR
+        "$ISODIR"
 
     info "ISO created successfully at output/$ISONAME"
 }
 
+cleanup() {
+    info "Cleaning up..."
+    if [ -d "$WORKDIR" ]; then
+        rm -rf "$WORKDIR"
+    fi
+}
+
 trap cleanup EXIT
-init_workdir
-configure_grub
+configure_workdir
+configure_bootloader
 configure_auto_deploy
-
+configure_setup_script
 create_iso
-
 info "===> Build completed successfully."

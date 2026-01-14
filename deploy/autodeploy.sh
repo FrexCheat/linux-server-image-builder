@@ -1,9 +1,9 @@
 #!/bin/bash
 
-green='\033[0;32m'
-red='\033[0;31m'
-yellow='\033[0;33m'
-reset='\033[0m'
+green="\033[0;32m"
+red="\033[0;31m"
+yellow="\033[0;33m"
+reset="\033[0m"
 
 info() {
     echo -e "${green}$1${reset}"
@@ -21,7 +21,7 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 # ===================== Global Variables =====================
 
-TARGET="/mnt/target"
+TARGET="/tmp/target"
 DISK=""
 EFI=false
 PARTITION1=""
@@ -40,10 +40,10 @@ declare -A PART_TYPE_UUID=(
 
 get_root_type_uuid() {
     case "$(uname -m)" in
-        x86_64)  echo "${PART_TYPE_UUID[linux_x86_64]}" ;;
-        i?86)    echo "${PART_TYPE_UUID[linux_x86]}" ;;
-        aarch64) echo "${PART_TYPE_UUID[linux_arm64]}" ;;
-        *)       echo "${PART_TYPE_UUID[linux_generic]}" ;;
+    x86_64) echo "${PART_TYPE_UUID[linux_x86_64]}" ;;
+    i?86) echo "${PART_TYPE_UUID[linux_x86]}" ;;
+    aarch64) echo "${PART_TYPE_UUID[linux_arm64]}" ;;
+    *) echo "${PART_TYPE_UUID[linux_generic]}" ;;
     esac
 }
 
@@ -68,30 +68,51 @@ detect_boot_mode() {
 
 get_partition_dev() {
     local disk="$1" num="$2"
-    if [[ "$disk" =~ nvme|mmcblk|loop ]]; then
+    if [[ $disk =~ nvme|mmcblk|loop ]]; then
         echo "${disk}p${num}"
     else
         echo "${disk}${num}"
     fi
 }
 
-countdown() {
-    local seconds="$1"
-    local prompt="$2"
-    local confirm_key="${3:-y}"
+confirm_with_timeout() {
+    local prompt="$1"
+    local timeout="$2"
+    local default="${3:-Y}"
+    local display_format
+    local user_input
 
-    for ((i=seconds; i>0; i--)); do
-        printf "\r%s" "$prompt ($i s) [${confirm_key}/n]: "
-        if read -t 1 -n 1 key; then
-            echo
-            case "$key" in
-                "$confirm_key"|"${confirm_key^}") return 0 ;;
-                n|N) return 1 ;;
-            esac
+    if [[ "${default,,}" == "y" ]]; then
+        display_format="[Y/n]"
+        default="Y"
+    else
+        display_format="[y/N]"
+        default="N"
+    fi
+
+    while true; do
+        echo -n "$prompt $display_format (${timeout}s): "
+        if ! read -t "$timeout" user_input; then
+            echo ""
+            user_input="$default"
         fi
+
+        if [[ -z "$user_input" ]]; then
+            user_input="$default"
+        fi
+
+        case "${user_input,,}" in
+        y | yes)
+            return 0
+            ;;
+        n | no)
+            return 1
+            ;;
+        *)
+            echo "Invalid input, please try again."
+            ;;
+        esac
     done
-    echo
-    return 0
 }
 
 # ===================== Disk Selection =====================
@@ -99,7 +120,7 @@ countdown() {
 list_available_disks() {
     local disks=()
     while read -r name type; do
-        [ "$type" = "disk" ] || continue
+        [ $type = "disk" ] || continue
         disks+=("/dev/$name")
     done < <(lsblk -ndo NAME,TYPE)
     echo "${disks[@]}"
@@ -107,41 +128,37 @@ list_available_disks() {
 
 select_disk_auto() {
     local disks=($(list_available_disks))
-    
+
     if [ ${#disks[@]} -eq 0 ]; then
         error "===> No available disks found!"
         return 1
     fi
-    
+
     DISK="${disks[0]}"
-    info "===> Auto selected disk: $DISK$(lsblk -ndo SIZE "$DISK")"
+    info "===> Auto selected disk: $DISK$(lsblk -ndo SIZE $DISK)"
 }
 
 select_disk_manual() {
     local disks=($(list_available_disks))
-    
+
     if [ ${#disks[@]} -eq 0 ]; then
         error "===> No available disks found!"
         return 1
     fi
-    
-    echo
+
+    echo ""
     info "===> Available disks:"
     printf "%-15s %-10s %s\n" "DEVICE" "SIZE" "MODEL"
     for dev in "${disks[@]}"; do
-        printf "%-15s %-10s %s\n" \
-            "$dev" \
-            "$(lsblk -ndo SIZE "$dev")" \
-            "$(lsblk -ndo MODEL "$dev" 2>/dev/null || echo "-")"
+        printf "%-15s %-10s %s\n" "$dev" "$(lsblk -ndo SIZE "$dev")" "$(lsblk -ndo MODEL "$dev" 2>/dev/null || echo "-")"
     done
-    echo
-    
+    echo ""
+
     while true; do
         read -rp "Enter disk (e.g., sda or /dev/sda): " input
         input="/dev/${input#/dev/}"
-        
-        if [ -b "$input" ]; then
-            DISK="$input"
+        if [ -b $input ]; then
+            DISK=$input
             break
         else
             error "===> Invalid disk: $input"
@@ -153,20 +170,29 @@ select_disk_manual() {
 
 show_partition_plan() {
     local root_uuid=$(get_root_type_uuid)
+    local total_bytes=$(lsblk -bndo SIZE $DISK)
+    local used_bytes
+    if $EFI; then
+        used_bytes=$((300 * 1024 * 1024))
+    else
+        used_bytes=$((1 * 1024 * 1024))
+    fi
+    local remaining_bytes=$((total_bytes - used_bytes))
+    local remaining_size=$(numfmt --to=iec-i --suffix=B $remaining_bytes)
     echo
     info "============================== Partition Plan =============================="
-    echo "Disk: $DISK$(lsblk -ndo SIZE "$DISK")"
+    echo "Disk: $DISK$(lsblk -ndo SIZE $DISK)"
     echo "Table: GPT"
     echo
     printf "%-4s %-12s %-10s %-10s %s\n" "NUM" "SIZE" "TYPE" "FORMAT" "TYPE UUID"
     echo "---------------------------------------------------------------"
-    
+
     if $EFI; then
         printf "%-4s %-12s %-10s %-10s %s\n" "1" "300MB" "EFI" "FAT32" "${PART_TYPE_UUID[efi]}"
-        printf "%-4s %-12s %-10s %-10s %s\n" "2" "Remaining" "Linux" "ext4" "$root_uuid"
+        printf "%-4s %-12s %-10s %-10s %s\n" "2" "$remaining_size" "Linux" "ext4" "$root_uuid"
     else
         printf "%-4s %-12s %-10s %-10s %s\n" "1" "1MB" "BIOS Boot" "-" "${PART_TYPE_UUID[bios_grub]}"
-        printf "%-4s %-12s %-10s %-10s %s\n" "2" "Remaining" "Linux" "ext4" "$root_uuid"
+        printf "%-4s %-12s %-10s %-10s %s\n" "2" "$remaining_size" "Linux" "ext4" "$root_uuid"
     fi
     echo
     warn "WARNING: All data on $DISK will be destroyed!"
@@ -176,66 +202,65 @@ show_partition_plan() {
 
 create_partitions() {
     local root_uuid=$(get_root_type_uuid)
-    
+
     info "===> Creating partitions on $DISK..."
-    
-    parted --script "$DISK" mklabel gpt
-    
+
+    parted --script $DISK mklabel gpt
+
     if $EFI; then
-        parted --script "$DISK" \
-            mkpart "EFI" fat32 1MiB 301MiB \
-            set 1 esp on \
-            mkpart "Linux" ext4 301MiB 100% \
-            type 1 "${PART_TYPE_UUID[efi]}" \
-            type 2 "$root_uuid"
+        parted --script $DISK mkpart "EFI" fat32 1MiB 301MiB
+        parted --script $DISK set 1 esp on
+        parted --script $DISK mkpart "Linux" ext4 301MiB 100%
+        parted --script $DISK type 2 "$root_uuid"
     else
-        parted --script "$DISK" \
-            mkpart "BIOS" 1MiB 2MiB \
-            set 1 bios_grub on \
-            mkpart "Linux" ext4 2MiB 100% \
-            type 1 "${PART_TYPE_UUID[bios_grub]}" \
-            type 2 "$root_uuid"
+        parted --script $DISK mkpart "BIOS" 1MiB 2MiB
+        parted --script $DISK set 1 bios_grub on
+        parted --script $DISK mkpart "Linux" ext4 2MiB 100%
+        parted --script $DISK type 2 "$root_uuid"
     fi
-    
+
     sleep 2
-    partprobe "$DISK"
+    partprobe $DISK
     sleep 1
-    
-    PARTITION1=$(get_partition_dev "$DISK" 1)
-    PARTITION2=$(get_partition_dev "$DISK" 2)
+
+    PARTITION1=$(get_partition_dev $DISK 1)
+    PARTITION2=$(get_partition_dev $DISK 2)
 }
 
 format_partitions() {
     info "===> Formatting partitions..."
-    
+
     if $EFI; then
         info "===> $PARTITION1 -> FAT32"
-        mkfs.fat -I -F32 "$PARTITION1"
+        mkfs.fat -I -F32 $PARTITION1
     fi
-    
+
     info "===> $PARTITION2 -> ext4"
-    mkfs.ext4 -F "$PARTITION2"
+    mkfs.ext4 -F $PARTITION2
 }
 
 # ===================== Extract Rootfs Functions =====================
 
 mount_target() {
     info "===> Mounting target partitions..."
-
-    mount -t tmpfs tmpfs /mnt
-    mkdir -p $TARGET
-    mount "$PARTITION2" "$TARGET"
-    if $EFI; then
-        mkdir -p "$TARGET/boot/efi"
-        mount "$PARTITION1" "$TARGET/boot/efi"
-    fi
     mkdir -p /dev/shm
+    mount -t tmpfs tmpfs /tmp
+    mount -t tmpfs tmpfs /run
     mount -t tmpfs tmpfs /dev/shm
+    mkdir -p $TARGET
+    mount $PARTITION2 $TARGET
+    if $EFI; then
+        mkdir -p $TARGET/boot/efi
+        mount $PARTITION1 $TARGET/boot/efi
+    fi
 }
 
 unmount_target() {
     info "===> Unmounting target partitions..."
-    umount --recursive "$TARGET" || warn "===> Warning: Failed to unmount target partitions. Continuing..."
+    umount -R $TARGET || warn "===> Warning: Failed to unmount target partitions. Continuing..."
+    umount -R /tmp || warn "===> Warning: Failed to unmount /tmp. Continuing..."
+    umount -R /run || warn "===> Warning: Failed to unmount /run. Continuing..."
+    umount -R /dev/shm || warn "===> Warning: Failed to unmount /dev/shm. Continuing..."
     sync
 }
 
@@ -243,7 +268,7 @@ rsync_rootfs() {
     info "===> Syncing root filesystem to target..."
 
     rsync -aHAXS \
-        --exclude="/boot/grub/*" \
+        --exclude="/boot/grub/" \
         --exclude="/EFI/" \
         --exclude="/tmp/*" \
         --exclude="/proc/*" \
@@ -252,53 +277,49 @@ rsync_rootfs() {
         --exclude="/run/*" \
         --exclude="/mnt/*" \
         --exclude="/media/*" \
+        --exclude="/lost+found/" \
         --exclude="/opt/init.sh" \
         --exclude="/opt/autodeploy.sh" \
         --exclude="/root/.ansible/" \
-        / "$TARGET/"
-    sed -i '/# ==== Auto-deploy toolkit block begin ====/,/# ==== Auto-deploy toolkit block end ====/d' "$TARGET/etc/bash.bashrc"
+        / $TARGET/
+    sed -i '/# ==== Auto-deploy toolkit block begin ====/,/# ==== Auto-deploy toolkit block end ====/d' $TARGET/etc/bash.bashrc
     sync
 }
 
 # ==================== Chroot Functions =====================
 
 in_target() {
-    arch-chroot "$TARGET" "$@"
+    arch-chroot $TARGET "$@"
 }
 
 gen_fstab() {
     info "===> Generating fstab..."
+    touch "$TARGET/etc/fstab"
     local root_uuid=$(blkid -s UUID -o value $PARTITION2)
-
-    touch $TARGET/etc/fstab
-    cat > "$TARGET/etc/fstab" <<EOF
-# Auto-generated by auto deployment toolkit: $(date --rfc-3339=seconds)
-# <file system> <mount point> <type> <options> <dump> <pass>
-UUID=$root_uuid    /    ext4    errors=remount-ro    0    1
+    local efi_uuid=$(blkid -s UUID -o value $PARTITION1)
+    cat >"$TARGET/etc/fstab" <<EOF
+UUID=$root_uuid  /  ext4  defaults  0  1
 EOF
-
     if $EFI; then
-        local efi_uuid=$(blkid -s UUID -o value $PARTITION1)
-        cat >> "$TARGET/etc/fstab" <<EOF
-UUID=$efi_uuid    /boot/efi    vfat    umask=0077    0    1
+        cat >>"$TARGET/etc/fstab" <<EOF
+UUID=$efi_uuid  /boot/efi  vfat  defaults  0  1
 EOF
     fi
 }
 
 install_bootloader() {
     info "===> Installing GRUB bootloader..."
-
     if $EFI; then
         in_target grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Ubuntu
     else
         in_target grub-install --target=i386-pc $DISK
     fi
-
     in_target update-grub
-    in_target apt-get clean
 }
 
 # ===================== Deployment Block =====================
+
+clear
 
 echo "═════════════════════════════════════════════════════════════════════════════════════════════════════════════"
 echo "                                                                                                             "
@@ -309,37 +330,43 @@ echo "██║  ██║██╔══╝  ██╔═══╝ ██║   
 echo "██████╔╝███████╗██║     ███████╗╚██████╔╝   ██║          ██║   ╚██████╔╝╚██████╔╝███████╗██║  ██╗██║   ██║   "
 echo "╚═════╝ ╚══════╝╚═╝     ╚══════╝ ╚═════╝    ╚═╝          ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝   ╚═╝   "
 echo "                                                                                                             "
-echo "  Author: Frex & Charles          Version: 1.0-ubuntu-noble          Date: 2026-01-08          LICENSE: MIT  "
+echo "  Author: Frex & Charles          Version: 1.1-ubuntu-noble          Date: 2026-01-13          LICENSE: MIT  "
 echo "═════════════════════════════════════════════════════════════════════════════════════════════════════════════"
 
 main() {
     check_root
     detect_boot_mode
 
-    if countdown 10 "Start automated deployment?" "y"; then
-        if countdown 10 "Use automatic disk selection?" "y"; then
-            select_disk_auto || exit 1
-        else
-            select_disk_manual || exit 1
-        fi
+    warn "********************************** Partitioning Part **********************************"
+    if confirm_with_timeout "Auto select disk?" 10; then
+        select_disk_auto || exit 1
     else
-        exit 1
+        select_disk_manual || exit 1
     fi
 
     show_partition_plan
 
-    if ! countdown 10 "Proceed with partitioning?" "y"; then
-        error "===> Cancelled by user."
-        exit 1
-    fi
+    warn "DANGER: This action is irreversible!"
+    local required_text="FUCK MY DISK"
+    echo -e "\033[1;33mPlease type: \033[1;31m$required_text\033[1;33m to confirm:\033[0m"
+    while true; do
+        read -p "> " user_input
+        if [[ "$user_input" != "$required_text" ]]; then
+            error "===> Confirmation text mismatch. Partitioning aborted."
+        else 
+            break
+        fi
+    done
 
     create_partitions
     format_partitions
 
+    echo ""
+    parted $DISK print
+    echo ""
     info "===> Partitioning completed!"
-    echo
-    parted "$DISK" print
 
+    warn "********************************** Mount and Extract Part **********************************"
     mount_target
     rsync_rootfs
     gen_fstab
@@ -347,7 +374,7 @@ main() {
     unmount_target
 }
 
-trap '' EXIT
+trap 'echo ""; exit' SIGINT
 
 main "$@"
 
@@ -359,6 +386,6 @@ for i in {10..1}; do
 done
 
 echo -e "\nRebooting now..."
-echo s > /proc/sysrq-trigger
-echo u > /proc/sysrq-trigger
-echo b > /proc/sysrq-trigger
+echo s >/proc/sysrq-trigger
+echo u >/proc/sysrq-trigger
+echo b >/proc/sysrq-trigger
